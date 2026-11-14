@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>REALITY LAB — Stickman Prototype</title>
+  <title>REALITY LAB — Scene Builder</title>
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; overflow: hidden; background: #080d16; color: #eef4ff; font-family: Inter, system-ui, sans-serif; }
@@ -15,6 +15,10 @@
     button { border: 1px solid #38506d; border-radius: 9px; padding: 9px 13px; background: #14243a; color: #eef4ff; cursor: pointer; font-weight: 600; }
     button:hover, button.active { background: #1762a4; border-color: #49a5ff; }
     #status { margin-top: 14px; color: #8fa8c7; font-size: 12px; }
+    .editor { margin-top: 14px; padding-top: 12px; border-top: 1px solid #26354b; }
+    .editor label { display:block; margin-bottom:7px; color:#c5d4e8; font-size:12px; font-weight:700; }
+    #sceneJson { width:100%; height:150px; resize:vertical; border:1px solid #38506d; border-radius:8px; padding:9px; background:#081321; color:#cfe2fa; font:11px/1.5 ui-monospace,monospace; }
+    .panel { max-height: calc(100vh - 48px); overflow-y:auto; }
     .hint { position: fixed; right: 22px; bottom: 18px; color: #73849c; font-size: 12px; }
   </style>
   <script type="importmap">
@@ -43,6 +47,15 @@
       <button id="object">Moving object: on</button>
     </div>
     <div id="status">Loading 3D scene…</div>
+    <div class="editor">
+      <label for="sceneJson">CUSTOM SCENE JSON</label>
+      <textarea id="sceneJson" spellcheck="false">[\n  {"action":"idle","duration":1500,"label":"Opening shot"},\n  {"action":"point","duration":1800,"label":"Introduce the idea"},\n  {"action":"think","duration":2000,"label":"Think it through"},\n  {"action":"wave","duration":1500,"label":"Closing pose"}\n]</textarea>
+      <div class="buttons" style="margin-top:8px">
+        <button id="loadScene">Load JSON</button>
+        <button id="playCustom">▶ Play custom scene</button>
+      </div>
+      <div style="margin-top:7px;color:#73849c;font-size:11px;line-height:1.5">Allowed actions: idle, walk, run, jump, point, think, wave. Duration is in milliseconds.</div>
+    </div>
     <div id="scenePlan" style="margin-top:12px;padding-top:10px;border-top:1px solid #26354b;color:#9aabc3;font-size:12px;line-height:1.7">Demo scene: Idle → Point → Walk → Think → Wave</div>
   </section>
   <div class="hint">Browser-based 3D prototype · No installation required</div>
@@ -157,7 +170,7 @@
 
     let mode = 'idle';
     let startTime = performance.now();
-    const demoScene = [
+    let activeScene = [
       { action: 'idle', duration: 1800, label: 'Establishing shot' },
       { action: 'point', duration: 1800, label: 'Introduce the subject' },
       { action: 'walk', duration: 2600, label: 'Move into the scene' },
@@ -183,6 +196,41 @@
       status.textContent = 'Playing complete demo scene…';
     });
     document.querySelector('#stopScene').addEventListener('click', stopScene);
+
+    function validateScene(value) {
+      const allowed = new Set(['idle', 'walk', 'run', 'jump', 'point', 'think', 'wave']);
+      if (!Array.isArray(value) || value.length < 1 || value.length > 30) throw new Error('Use an array with 1–30 scene steps.');
+      return value.map((step, index) => {
+        if (!step || !allowed.has(step.action)) throw new Error('Step ' + (index + 1) + ': unsupported action.');
+        const duration = Number(step.duration);
+        if (!Number.isFinite(duration) || duration < 300 || duration > 30000) throw new Error('Step ' + (index + 1) + ': duration must be 300–30000 ms.');
+        return { action: step.action, duration, label: String(step.label || step.action).slice(0, 60) };
+      });
+    }
+    document.querySelector('#loadScene').addEventListener('click', () => {
+      try {
+        activeScene = validateScene(JSON.parse(document.querySelector('#sceneJson').value));
+        document.querySelector('#scenePlan').textContent = 'Loaded scene: ' + activeScene.map(s => s.action).join(' → ');
+        status.textContent = 'Custom scene loaded · ' + activeScene.length + ' steps';
+      } catch (error) {
+        status.textContent = 'Scene error: ' + error.message;
+      }
+    });
+    document.querySelector('#playCustom').addEventListener('click', () => {
+      try {
+        activeScene = validateScene(JSON.parse(document.querySelector('#sceneJson').value));
+        scenePlaying = true;
+        sceneStart = performance.now();
+        activeSceneIndex = -1;
+        character.position.set(0, 0, 0);
+        character.rotation.set(0, 0, 0);
+        document.querySelector('#scenePlan').textContent = 'Custom scene: ' + activeScene.map(s => s.action).join(' → ');
+        status.textContent = 'Playing custom scene…';
+      } catch (error) {
+        status.textContent = 'Scene error: ' + error.message;
+      }
+    });
+
     const buttons = [...document.querySelectorAll('button')];
     function setMode(next) {
       mode = next;
@@ -223,9 +271,9 @@
         const elapsed = performance.now() - sceneStart;
         let cursor = 0;
         let chosen = -1;
-        for (let i = 0; i < demoScene.length; i++) {
-          if (elapsed >= cursor && elapsed < cursor + demoScene[i].duration) { chosen = i; break; }
-          cursor += demoScene[i].duration;
+        for (let i = 0; i < activeScene.length; i++) {
+          if (elapsed >= cursor && elapsed < cursor + activeScene[i].duration) { chosen = i; break; }
+          cursor += activeScene[i].duration;
         }
         if (chosen === -1) {
           scenePlaying = false;
@@ -234,9 +282,9 @@
           document.querySelector('#scenePlan').textContent = 'Completed: Idle → Point → Walk → Think → Wave';
         } else if (chosen !== activeSceneIndex) {
           activeSceneIndex = chosen;
-          mode = demoScene[chosen].action;
-          document.querySelector('#scenePlan').textContent = 'Now: ' + demoScene[chosen].label + ' · ' + (chosen + 1) + '/' + demoScene.length;
-          status.textContent = 'Scene action: ' + demoScene[chosen].action;
+          mode = activeScene[chosen].action;
+          document.querySelector('#scenePlan').textContent = 'Now: ' + activeScene[chosen].label + ' · ' + (chosen + 1) + '/' + activeScene.length;
+          status.textContent = 'Scene action: ' + activeScene[chosen].action;
         }
       }
       prop.position.set(Math.cos(t * 1.25) * 1.75, 1.15 + Math.sin(t * 2.2) * 0.35, Math.sin(t * 1.25) * 1.75);
