@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#090a0e">
+  <title>Horror Factory — Chat Story Studio</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="./"><span class="brand-mark">☾</span><span>HORROR<span class="muted"> FACTORY</span><small>CHAT STORY STUDIO</small></span></a>
+      <span class="local-tag"><i></i> LOCAL STORY BUILDER</span>
+    </header>
+    <main>
+      <section class="intro">
+        <p class="eyebrow">THE NIGHT SHIFT STARTS HERE</p>
+        <h1>Make them afraid<br><em>to open their messages.</em></h1>
+        <p class="sub">Build original horror chat episodes, preview the conversation, then export it for automated voiceover and video rendering.</p>
+      </section>
+      <section class="workspace">
+        <aside class="controls panel">
+          <div class="panel-heading"><span>01 / EPISODE SETUP</span><span class="tiny">NO API KEY REQUIRED</span></div>
+          <label for="premise">Story seed <small>Optional — give the story a direction</small></label>
+          <input id="premise" maxlength="100" placeholder="e.g. someone is standing outside the cabin">
+          <label for="style">Horror format</label>
+          <select id="style">
+            <option value="midnight">Midnight warning</option>
+            <option value="woods">Something in the woods</option>
+            <option value="group">Unknown group-chat member</option>
+            <option value="apartment">The apartment above me</option>
+          </select>
+          <label for="length">Target length</label>
+          <select id="length">
+            <option value="short">45–60 seconds</option>
+            <option value="medium" selected>60–75 seconds</option>
+          </select>
+          <button id="generate" class="primary">✦ Generate story</button>
+          <button id="regenerate" class="secondary">↻ Another version</button>
+          <div class="notice"><strong>Free-mode note</strong><p>This starter uses original story structures and randomized details. It does not call a paid AI API. Add a real language-model connection later if you choose.</p></div>
+          <div class="export-area">
+            <div class="panel-heading"><span>02 / EXPORT</span></div>
+            <button id="download" class="secondary" disabled>↓ Download episode JSON</button>
+            <button id="copy" class="ghost" disabled>Copy title & script</button>
+            <p class="hint">Use the JSON with the GitHub Actions renderer to create the MP4.</p>
+          </div>
+        </aside>
+        <section class="preview panel">
+          <div class="preview-head"><div><span class="panel-heading">03 / LIVE PREVIEW</span><h2 id="episode-title">The 3:17 AM Call</h2></div><span class="live-pill">PREVIEW</span></div>
+          <div class="phone">
+            <div class="phone-status"><span>9:41</span><span>●●●  ▰</span></div>
+            <div class="chat-head"><div class="avatar">?</div><div><strong id="chat-name">Alex</strong><small>last seen recently</small></div><span class="chat-menu">•••</span></div>
+            <div class="chat-date">TODAY</div>
+            <div id="messages" class="messages"></div>
+            <div class="chat-compose"><span>Message</span><b>➤</b></div>
+          </div>
+          <div class="preview-foot"><span id="message-count">0 messages</span><span>Vertical 9:16 video format</span></div>
+        </section>
+      </section>
+      <section class="steps">
+        <div><b>01</b><strong>Generate</strong><span>Build a fresh conversation</span></div>
+        <div><b>02</b><strong>Export</strong><span>Download the episode data</span></div>
+        <div><b>03</b><strong>Render</strong><span>Run the free GitHub workflow</span></div>
+      </section>
+    </main>
+    <footer>HORROR FACTORY <span>·</span> FICTIONAL STORIES. REAL BAD VIBES.</footer>
+  </div>
+  <script src="./app.js"></script>
+</body>
+</html>
