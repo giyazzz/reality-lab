@@ -17,6 +17,8 @@
     #status { margin-top: 14px; color: #8fa8c7; font-size: 12px; }
     .editor { margin-top: 14px; padding-top: 12px; border-top: 1px solid #26354b; }
     .editor label { display:block; margin-bottom:7px; color:#c5d4e8; font-size:12px; font-weight:700; }
+    .builderRow { display:flex; gap:6px; margin:8px 0; }
+    .builderRow select,.builderRow input { min-width:0; width:50%; border:1px solid #38506d; border-radius:8px; padding:8px; background:#081321; color:#eef4ff; }
     #sceneJson { width:100%; height:150px; resize:vertical; border:1px solid #38506d; border-radius:8px; padding:9px; background:#081321; color:#cfe2fa; font:11px/1.5 ui-monospace,monospace; }
     .panel { max-height: calc(100vh - 48px); overflow-y:auto; }
     .hint { position: fixed; right: 22px; bottom: 18px; color: #73849c; font-size: 12px; }
@@ -48,7 +50,18 @@
     </div>
     <div id="status">Loading 3D scene…</div>
     <div class="editor">
-      <label for="sceneJson">CUSTOM SCENE JSON</label>
+      <label>VISUAL SCENE BUILDER</label>
+      <div class="builderRow">
+        <select id="stepAction" aria-label="Choose action">
+          <option value="idle">Idle</option><option value="walk">Walk</option><option value="run">Run</option><option value="jump">Jump</option><option value="point">Point</option><option value="think">Think</option><option value="wave">Wave</option>
+        </select>
+        <input id="stepDuration" type="number" min="300" max="30000" step="100" value="1500" aria-label="Duration in milliseconds">
+      </div>
+      <input id="stepLabel" type="text" placeholder="Scene description (optional)" style="width:100%;border:1px solid #38506d;border-radius:8px;padding:9px;background:#081321;color:#eef4ff">
+      <div class="buttons" style="margin-top:8px">
+        <button id="addStep">+ Add step</button><button id="clearSteps">Clear steps</button>
+      </div>
+      <label for="sceneJson" style="margin-top:12px">SCENE DATA (JSON)</label>
       <textarea id="sceneJson" spellcheck="false">[\n  {"action":"idle","duration":1500,"label":"Opening shot"},\n  {"action":"point","duration":1800,"label":"Introduce the idea"},\n  {"action":"think","duration":2000,"label":"Think it through"},\n  {"action":"wave","duration":1500,"label":"Closing pose"}\n]</textarea>
       <div class="buttons" style="margin-top:8px">
         <button id="loadScene">Load JSON</button>
@@ -207,6 +220,38 @@
         return { action: step.action, duration, label: String(step.label || step.action).slice(0, 60) };
       });
     }
+
+    function readBuilderScene() {
+      return validateScene(JSON.parse(document.querySelector('#sceneJson').value));
+    }
+    function writeBuilderScene(steps) {
+      document.querySelector('#sceneJson').value = JSON.stringify(steps, null, 2);
+      activeScene = validateScene(steps);
+      document.querySelector('#scenePlan').textContent = 'Scene: ' + activeScene.map(s => s.action).join(' → ');
+      status.textContent = activeScene.length + ' scene steps ready';
+    }
+    document.querySelector('#addStep').addEventListener('click', () => {
+      try {
+        const steps = document.querySelector('#sceneJson').value.trim()
+          ? readBuilderScene() : [];
+        steps.push({
+          action: document.querySelector('#stepAction').value,
+          duration: Number(document.querySelector('#stepDuration').value),
+          label: document.querySelector('#stepLabel').value.trim() || document.querySelector('#stepAction').value
+        });
+        writeBuilderScene(steps);
+        document.querySelector('#stepLabel').value = '';
+      } catch (error) {
+        status.textContent = 'Scene error: ' + error.message;
+      }
+    });
+    document.querySelector('#clearSteps').addEventListener('click', () => {
+      document.querySelector('#sceneJson').value = '[]';
+      activeScene = [];
+      document.querySelector('#scenePlan').textContent = 'Empty scene — add a step above';
+      status.textContent = 'Scene cleared';
+    });
+
     document.querySelector('#loadScene').addEventListener('click', () => {
       try {
         activeScene = validateScene(JSON.parse(document.querySelector('#sceneJson').value));
