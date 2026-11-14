@@ -31,6 +31,10 @@
       <button id="walk">Walk</button>
       <button id="wave">Wave</button>
       <button id="reset">Reset</button>
+      <button id="front">Front view</button>
+      <button id="side">Side view</button>
+      <button id="threequarter">3/4 view</button>
+      <button id="object">Moving object: on</button>
     </div>
     <div id="status">Loading 3D scene…</div>
   </section>
@@ -138,6 +142,12 @@
     stage.castShadow = true;
     scene.add(stage);
 
+    // Reusable animated prop for testing object motion in a scene.
+    const prop = new THREE.Mesh(new THREE.IcosahedronGeometry(0.19, 1), new THREE.MeshStandardMaterial({ color: 0x48a8ff, emissive: 0x123d70, roughness: 0.3, metalness: 0.25 }));
+    prop.castShadow = true;
+    scene.add(prop);
+    let propVisible = true;
+
     let mode = 'idle';
     let startTime = performance.now();
     const buttons = [...document.querySelectorAll('button')];
@@ -150,6 +160,18 @@
     document.querySelector('#idle').addEventListener('click', () => setMode('idle'));
     document.querySelector('#walk').addEventListener('click', () => setMode('walk'));
     document.querySelector('#wave').addEventListener('click', () => setMode('wave'));
+    function setCamera(x, y, z) {
+      camera.position.set(x, y, z);
+      camera.lookAt(0, 1.25, 0);
+    }
+    document.querySelector('#front').addEventListener('click', () => setCamera(0, 2.7, 8.5));
+    document.querySelector('#side').addEventListener('click', () => setCamera(8.5, 2.7, 0));
+    document.querySelector('#threequarter').addEventListener('click', () => setCamera(4.5, 3.1, 7.5));
+    document.querySelector('#object').addEventListener('click', () => {
+      propVisible = !propVisible;
+      prop.visible = propVisible;
+      document.querySelector('#object').textContent = 'Moving object: ' + (propVisible ? 'on' : 'off');
+    });
     document.querySelector('#reset').addEventListener('click', () => {
       character.position.set(0, 0, 0);
       character.rotation.set(0, 0, 0);
@@ -160,6 +182,9 @@
     function animate() {
       requestAnimationFrame(animate);
       const t = clock.getElapsedTime();
+      prop.position.set(Math.cos(t * 1.25) * 1.75, 1.15 + Math.sin(t * 2.2) * 0.35, Math.sin(t * 1.25) * 1.75);
+      prop.rotation.x = t * 1.4;
+      prop.rotation.y = t * 1.8;
       if (mode === 'walk') {
         const swing = Math.sin(t * 7) * 0.48;
         leftLeg.rotation.x = swing;
