@@ -6,7 +6,7 @@ const metadata=JSON.parse(await fs.readFile('output/metadata.json','utf8'));
 const scenes=episode.scenes||[];
 if(!scenes.length)throw new Error('No storyboard scenes.');
 const run=(cmd,args)=>new Promise((resolve,reject)=>{const p=spawn(cmd,args,{stdio:'inherit'});p.on('error',reject);p.on('close',c=>c===0?resolve():reject(new Error(cmd+' exit '+c)));});
-const duration=await new Promise((resolve,reject)=>{const p=spawn('ffprobe',['-v','error','-show_entries','format=duration','-of','default=noprint_wrappers=1:nokey=1','output/narration.mp3']);let x='';p.stdout.on('data',d=>x+=d);p.on('error',reject);p.on('close',c=>c===0?resolve(Number(x.trim())):reject(new Error('ffprobe failed')));});
+const duration=await new Promise((resolve,reject)=>{const p=spawn('ffprobe',['-v','error','-show_entries','format=duration','-of','default=noprint_wrappers=1:nokey=1','output/narration.wav']);let x='';p.stdout.on('data',d=>x+=d);p.on('error',reject);p.on('close',c=>c===0?resolve(Number(x.trim())):reject(new Error('ffprobe failed')));});
 await fs.mkdir('output/frames',{recursive:true});
 const weights=scenes.map(s=>Math.max(1,String(s.narration||'').trim().split(/\s+/).length));
 const sum=weights.reduce((a,b)=>a+b,0),concat=[];
@@ -21,7 +21,7 @@ for(let i=0;i<scenes.length;i++){
  concat.push("file '"+mp4+"'");
 }
 await fs.writeFile('output/frames/concat.txt',concat.join('\n'));
-await run('ffmpeg',['-y','-f','concat','-safe','0','-i','output/frames/concat.txt','-i','output/narration.mp3','-c:v','copy','-c:a','aac','-b:a','192k','-shortest','-movflags','+faststart','output/reality-lab-episode.mp4']);
+await run('ffmpeg',['-y','-f','concat','-safe','0','-i','output/frames/concat.txt','-i','output/narration.wav','-c:v','copy','-c:a','aac','-b:a','192k','-shortest','-movflags','+faststart','output/reality-lab-episode.mp4']);
 const title=esc(metadata.title).slice(0,75);
 const thumb='<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720"><rect width="1280" height="720" fill="#081321"/><circle cx="970" cy="350" r="190" fill="none" stroke="#4caeff" stroke-width="18"/><ellipse cx="970" cy="350" rx="190" ry="75" fill="none" stroke="#b5e2ff" stroke-width="12" transform="rotate(-28 970 350)"/><circle cx="970" cy="350" r="45" fill="#80caff"/><text x="70" y="115" font-family="Arial" font-size="28" letter-spacing="8" fill="#9bcfff">REALITY LAB</text><text x="70" y="270" font-family="Arial" font-size="58" font-weight="bold" fill="white">'+title.slice(0,26)+'</text><text x="75" y="650" font-family="Arial" font-size="25" fill="#8ca8c7">EXPLORE. IMAGINE. DISCOVER.</text></svg>';
 await sharp(Buffer.from(thumb)).png().toFile('output/thumbnail.png');
