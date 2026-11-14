@@ -23,6 +23,12 @@
     #sceneJson { width:100%; height:150px; resize:vertical; border:1px solid #38506d; border-radius:8px; padding:9px; background:#081321; color:#cfe2fa; font:11px/1.5 ui-monospace,monospace; }
     .panel { max-height: calc(100vh - 48px); overflow-y:auto; }
     .hint { position: fixed; right: 22px; bottom: 18px; color: #73849c; font-size: 12px; }
+    .timeline { height: 5px; margin-top: 10px; overflow: hidden; border-radius: 99px; background: #1b2b40; }
+    #timelineFill { width: 0%; height: 100%; background: #49a5ff; transition: width .08s linear; }
+    .settingsRow { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; color:#9aabc3; font-size:12px; }
+    .settingsRow select { border:1px solid #38506d; border-radius:8px; padding:6px 8px; background:#081321; color:#eef4ff; }
+    button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible { outline:2px solid #65baff; outline-offset:2px; }
+    @media (max-width: 600px) { .panel { left:10px; top:10px; width:min(340px,calc(100vw - 20px)); max-height:calc(100vh - 20px); padding:14px; } .hint { display:none; } }
   </style>
   <script type="importmap">
     { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js" } }
@@ -41,6 +47,9 @@
       <button id="jump">Jump</button>
       <button id="point">Point</button>
       <button id="think">Think</button>
+      <button id="reach">Reach</button>
+      <button id="explain">Explain</button>
+      <button id="celebrate">Celebrate</button>
       <button id="playScene">▶ Play demo scene</button>
       <button id="stopScene">■ Stop scene</button>
       <button id="reset">Reset</button>
@@ -49,7 +58,9 @@
       <button id="threequarter">3/4 view</button>
       <button id="object">Moving object: on</button>
     </div>
-    <div id="status">Loading 3D scene…</div>
+    <div id="status" role="status" aria-live="polite">Loading 3D scene…</div>
+    <div class="settingsRow"><label for="playbackSpeed">Scene playback speed</label><select id="playbackSpeed"><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></div>
+    <div class="timeline" aria-label="Scene progress"><div id="timelineFill"></div></div>
     <div class="editor">
       <label for="scriptInput">SCRIPT-TO-SCENE DRAFT</label>
       <textarea id="scriptInput" placeholder="Paste a short narration script here. Each sentence becomes a draft scene."></textarea>
@@ -60,7 +71,7 @@
       <label>VISUAL SCENE BUILDER</label>
       <div class="builderRow">
         <select id="stepAction" aria-label="Choose action">
-          <option value="idle">Idle</option><option value="walk">Walk</option><option value="run">Run</option><option value="jump">Jump</option><option value="point">Point</option><option value="think">Think</option><option value="wave">Wave</option>
+          <option value="idle">Idle</option><option value="walk">Walk</option><option value="run">Run</option><option value="jump">Jump</option><option value="point">Point</option><option value="think">Think</option><option value="wave">Wave</option><option value="reach">Reach</option><option value="explain">Explain</option><option value="celebrate">Celebrate</option>
         </select>
         <input id="stepDuration" type="number" min="300" max="30000" step="100" value="1500" aria-label="Duration in milliseconds">
       </div>
@@ -74,7 +85,7 @@
         <button id="loadScene">Load JSON</button>
         <button id="playCustom">▶ Play custom scene</button>
       </div>
-      <div style="margin-top:7px;color:#73849c;font-size:11px;line-height:1.5">Allowed actions: idle, walk, run, jump, point, think, wave. Duration is in milliseconds.</div>
+      <div style="margin-top:7px;color:#73849c;font-size:11px;line-height:1.5">Allowed actions: idle, walk, run, jump, point, think, wave, reach, explain, celebrate. Duration is in milliseconds.</div>
     </div>
     <div id="scenePlan" style="margin-top:12px;padding-top:10px;border-top:1px solid #26354b;color:#9aabc3;font-size:12px;line-height:1.7">Demo scene: Idle → Point → Walk → Think → Wave</div>
   </section>
@@ -209,6 +220,22 @@
     let scenePlaying = false;
     let sceneStart = 0;
     let activeSceneIndex = -1;
+    let sceneDuration = 0;
+    let playbackSpeed = 1;
+    const timelineFill = document.querySelector('#timelineFill');
+    document.querySelector('#playbackSpeed').addEventListener('change', event => {
+      playbackSpeed = Number(event.target.value) || 1;
+    });
+    function beginScene(steps) {
+      activeScene = validateScene(steps);
+      sceneDuration = activeScene.reduce((sum, step) => sum + step.duration, 0);
+      scenePlaying = true;
+      sceneStart = performance.now();
+      activeSceneIndex = -1;
+      character.position.set(0, 0, 0);
+      character.rotation.set(0, 0, 0);
+      timelineFill.style.width = '0%';
+    }
     function stopScene() {
       scenePlaying = false;
       activeSceneIndex = -1;
@@ -217,17 +244,13 @@
       document.querySelector('#scenePlan').textContent = 'Demo scene: Idle → Point → Walk → Think → Wave';
     }
     document.querySelector('#playScene').addEventListener('click', () => {
-      scenePlaying = true;
-      sceneStart = performance.now();
-      activeSceneIndex = -1;
-      character.position.set(0, 0, 0);
-      character.rotation.set(0, 0, 0);
+      beginScene(activeScene);
       status.textContent = 'Playing complete demo scene…';
     });
     document.querySelector('#stopScene').addEventListener('click', stopScene);
 
     function validateScene(value) {
-      const allowed = new Set(['idle', 'walk', 'run', 'jump', 'point', 'think', 'wave']);
+      const allowed = new Set(['idle', 'walk', 'run', 'jump', 'point', 'think', 'wave', 'reach', 'explain', 'celebrate']);
       if (!Array.isArray(value) || value.length < 1 || value.length > 30) throw new Error('Use an array with 1–30 scene steps.');
       return value.map((step, index) => {
         if (!step || !allowed.has(step.action)) throw new Error('Step ' + (index + 1) + ': unsupported action.');
@@ -252,7 +275,10 @@
       const steps = sentences.slice(0, 30).map((sentence, index) => {
         const lower = sentence.toLowerCase();
         let action = 'idle';
-        if (/why|think|consider|question|wonder|imagine|perhaps/.test(lower)) action = 'think';
+        if (/celebrat|success|victory|amazing|incredible/.test(lower)) action = 'celebrate';
+        else if (/reach|touch|grab|hold|take/.test(lower)) action = 'reach';
+        else if (/explain|show|demonstrat|for example/.test(lower)) action = 'explain';
+        else if (/why|think|consider|question|wonder|imagine|perhaps/.test(lower)) action = 'think';
         else if (/look|see|notice|point|here|this/.test(lower)) action = 'point';
         else if (/move|travel|walk|approach|enter/.test(lower)) action = 'walk';
         else if (/run|race|rapid|quickly/.test(lower)) action = 'run';
@@ -313,11 +339,7 @@
     document.querySelector('#playCustom').addEventListener('click', () => {
       try {
         activeScene = validateScene(JSON.parse(document.querySelector('#sceneJson').value));
-        scenePlaying = true;
-        sceneStart = performance.now();
-        activeSceneIndex = -1;
-        character.position.set(0, 0, 0);
-        character.rotation.set(0, 0, 0);
+        beginScene(activeScene);
         document.querySelector('#scenePlan').textContent = 'Custom scene: ' + activeScene.map(s => s.action).join(' → ');
         status.textContent = 'Playing custom scene…';
       } catch (error) {
@@ -330,7 +352,9 @@
       mode = next;
       startTime = performance.now();
       buttons.forEach(button => button.classList.toggle('active', button.id === next));
-      status.textContent = ({ idle: 'Standing pose', walk: 'Walking animation', wave: 'Waving animation', run: 'Running animation', jump: 'Jumping animation', point: 'Pointing pose', think: 'Thinking pose' })[next] || 'Animation';
+      scenePlaying = false;
+      timelineFill.style.width = '0%';
+      status.textContent = ({ idle: 'Standing pose', walk: 'Walking animation', wave: 'Waving animation', run: 'Running animation', jump: 'Jumping animation', point: 'Pointing pose', think: 'Thinking pose', reach: 'Reaching toward the object', explain: 'Explaining with both hands', celebrate: 'Celebration pose' })[next] || 'Animation';
     }
     document.querySelector('#idle').addEventListener('click', () => setMode('idle'));
     document.querySelector('#walk').addEventListener('click', () => setMode('walk'));
@@ -339,9 +363,12 @@
     document.querySelector('#jump').addEventListener('click', () => setMode('jump'));
     document.querySelector('#point').addEventListener('click', () => setMode('point'));
     document.querySelector('#think').addEventListener('click', () => setMode('think'));
+    document.querySelector('#reach').addEventListener('click', () => setMode('reach'));
+    document.querySelector('#explain').addEventListener('click', () => setMode('explain'));
+    document.querySelector('#celebrate').addEventListener('click', () => setMode('celebrate'));
+    const cameraTarget = new THREE.Vector3(4.5, 3.1, 7.5);
     function setCamera(x, y, z) {
-      camera.position.set(x, y, z);
-      camera.lookAt(0, 1.25, 0);
+      cameraTarget.set(x, y, z);
     }
     document.querySelector('#front').addEventListener('click', () => setCamera(0, 2.7, 8.5));
     document.querySelector('#side').addEventListener('click', () => setCamera(8.5, 2.7, 0));
@@ -360,9 +387,11 @@
     const clock = new THREE.Clock();
     function animate() {
       requestAnimationFrame(animate);
-      const t = clock.getElapsedTime();
+      const delta = Math.min(clock.getDelta(), 0.05);
+      const t = clock.elapsedTime;
       if (scenePlaying) {
-        const elapsed = performance.now() - sceneStart;
+        const elapsed = (performance.now() - sceneStart) * playbackSpeed;
+        timelineFill.style.width = Math.min(100, (elapsed / Math.max(1, sceneDuration)) * 100) + '%';
         let cursor = 0;
         let chosen = -1;
         for (let i = 0; i < activeScene.length; i++) {
@@ -372,7 +401,8 @@
         if (chosen === -1) {
           scenePlaying = false;
           mode = 'idle';
-          status.textContent = 'Demo scene complete';
+          timelineFill.style.width = '100%';
+          status.textContent = 'Scene complete';
           document.querySelector('#scenePlan').textContent = 'Completed: Idle → Point → Walk → Think → Wave';
         } else if (chosen !== activeSceneIndex) {
           activeSceneIndex = chosen;
@@ -384,6 +414,11 @@
       prop.position.set(Math.cos(t * 1.25) * 1.75, 1.15 + Math.sin(t * 2.2) * 0.35, Math.sin(t * 1.25) * 1.75);
       prop.rotation.x = t * 1.4;
       prop.rotation.y = t * 1.8;
+      // Camera glides to each selected angle instead of snapping.
+      camera.position.x = THREE.MathUtils.damp(camera.position.x, cameraTarget.x, 5, delta);
+      camera.position.y = THREE.MathUtils.damp(camera.position.y, cameraTarget.y, 5, delta);
+      camera.position.z = THREE.MathUtils.damp(camera.position.z, cameraTarget.z, 5, delta);
+      camera.lookAt(0, 1.25, 0);
       // Subtle idle life: gentle breathing and small head movement.
       const idleBreath = mode === 'idle' ? Math.sin(t * 2.1) : 0;
       torso.scale.y = 1 + idleBreath * 0.018;
@@ -428,9 +463,22 @@
         targetRightArmZ = -0.15 + Math.sin(t * 6) * 0.18;
         targetRightArmX = -2.35 + Math.sin(t * 6) * 0.12;
         targetBodyTurn = Math.sin(t * 1.5) * 0.08;
+      } else if (mode === 'reach') {
+        targetRightArmX = -1.05;
+        targetRightArmZ = -0.62;
+        targetBodyTurn = -0.12;
+      } else if (mode === 'explain') {
+        targetLeftArmX = -1.05 + Math.sin(t * 2.4) * 0.12;
+        targetRightArmX = -1.05 - Math.sin(t * 2.4) * 0.12;
+        targetLeftArmZ = 0.42;
+        targetRightArmZ = -0.42;
+      } else if (mode === 'celebrate') {
+        targetLeftArmX = -2.55 + Math.sin(t * 4) * 0.08;
+        targetRightArmX = -2.55 - Math.sin(t * 4) * 0.08;
+        targetBodyY = Math.max(0, Math.sin(t * 4) * 0.12);
       }
 
-      const smooth = (current, target) => THREE.MathUtils.damp(current, target, 10, 0.016);
+      const smooth = (current, target) => THREE.MathUtils.damp(current, target, 10, delta);
       leftLeg.rotation.x = smooth(leftLeg.rotation.x, targetLeftLegX);
       rightLeg.rotation.x = smooth(rightLeg.rotation.x, targetRightLegX);
       leftArm.rotation.x = smooth(leftArm.rotation.x, targetLeftArmX);
