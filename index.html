@@ -60,6 +60,12 @@
     </div>
     <div id="status" role="status" aria-live="polite">Loading 3D scene…</div>
     <div class="settingsRow"><label for="playbackSpeed">Scene playback speed</label><select id="playbackSpeed"><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></div>
+    <div class="editor" style="margin-top:10px;padding-top:10px">
+      <label for="narrationFile">NARRATION AUDIO SYNC</label>
+      <input id="narrationFile" type="file" accept="audio/*" style="width:100%;color:#9aabc3;font-size:11px">
+      <div class="buttons" style="margin-top:8px"><button id="playSynced">▶ Play scene + narration</button><button id="stopAudio">Stop audio</button></div>
+      <div id="audioStatus" style="margin-top:6px;color:#73849c;font-size:11px;line-height:1.5">Choose an audio file to preview it alongside your scene.</div>
+    </div>
     <div class="timeline" aria-label="Scene progress"><div id="timelineFill"></div></div>
     <div class="editor">
       <label for="scriptInput">SCRIPT-TO-SCENE DRAFT</label>
@@ -328,22 +334,75 @@
     let activeSceneIndex = -1;
     let sceneDuration = 0;
     let playbackSpeed = 1;
+    let audioSynced = false;
+    let narrationUrl = null;
+    const narrationAudio = new Audio();
     const timelineFill = document.querySelector('#timelineFill');
+    const audioStatus = document.querySelector('#audioStatus');
     document.querySelector('#playbackSpeed').addEventListener('change', event => {
       playbackSpeed = Number(event.target.value) || 1;
+      narrationAudio.playbackRate = playbackSpeed;
     });
-    function beginScene(steps) {
+    document.querySelector('#narrationFile').addEventListener('change', event => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      if (narrationUrl) URL.revokeObjectURL(narrationUrl);
+      narrationUrl = URL.createObjectURL(file);
+      narrationAudio.src = narrationUrl;
+      narrationAudio.load();
+      narrationAudio.playbackRate = playbackSpeed;
+      audioStatus.textContent = 'Loaded: ' + file.name + ' · check that scene durations roughly match the audio length.';
+      narrationAudio.onloadedmetadata = () => {
+        audioStatus.textContent = 'Loaded: ' + file.name + ' · audio length ' + narrationAudio.duration.toFixed(1) + 's. Match your scene duration to this.';
+      };
+    });
+    function beginScene(steps, syncAudio = false) {
       activeScene = validateScene(steps);
       sceneDuration = activeScene.reduce((sum, step) => sum + step.duration, 0);
       scenePlaying = true;
+      audioSynced = syncAudio && Boolean(narrationAudio.src);
       sceneStart = performance.now();
       activeSceneIndex = -1;
       character.position.set(0, 0, 0);
       character.rotation.set(0, 0, 0);
       timelineFill.style.width = '0%';
+      if (audioSynced) {
+        narrationAudio.pause();
+        narrationAudio.currentTime = 0;
+        narrationAudio.playbackRate = playbackSpeed;
+        narrationAudio.play().catch(() => {
+          audioSynced = false;
+          audioStatus.textContent = 'Audio could not start. Use a supported audio file and try again.';
+        });
+      }
     }
+    document.querySelector('#playSynced').addEventListener('click', () => {
+      try {
+        const steps = validateScene(JSON.parse(document.querySelector('#sceneJson').value));
+        if (!narrationAudio.src) {
+          audioStatus.textContent = 'Choose a narration audio file first.';
+          return;
+        }
+        beginScene(steps, true);
+        document.querySelector('#scenePlan').textContent = 'Narration-synced scene: ' + steps.map(s => s.action).join(' → ');
+        status.textContent = 'Playing scene with narration…';
+      } catch (error) {
+        status.textContent = 'Scene error: ' + error.message;
+      }
+    });
+    document.querySelector('#stopAudio').addEventListener('click', () => {
+      narrationAudio.pause();
+      narrationAudio.currentTime = 0;
+      audioSynced = false;
+      scenePlaying = false;
+      audioStatus.textContent = 'Narration stopped.';
+      status.textContent = 'Playback stopped';
+    });
     function stopScene() {
       scenePlaying = false;
+      audioSynced = false;
+      narrationAudio.pause();
+      narrationAudio.currentTime = 0;
       activeSceneIndex = -1;
       setMode('idle');
       status.textContent = 'Scene stopped';
@@ -534,6 +593,10 @@
     const buttons = [...document.querySelectorAll('button')];
     function setMode(next) {
       mode = next;
+      if (audioSynced) {
+        narrationAudio.pause();
+        audioSynced = false;
+      }
       startTime = performance.now();
       buttons.forEach(button => button.classList.toggle('active', button.id === next));
       scenePlaying = false;
@@ -575,7 +638,7 @@
       const delta = Math.min(clock.getDelta(), 0.05);
       const t = clock.elapsedTime;
       if (scenePlaying) {
-        const elapsed = (performance.now() - sceneStart) * playbackSpeed;
+        const elapsed = audioSynced ? narrationAudio.currentTime * 1000 : (performance.now() - sceneStart) * playbackSpeed;
         timelineFill.style.width = Math.min(100, (elapsed / Math.max(1, sceneDuration)) * 100) + '%';
         let cursor = 0;
         let chosen = -1;
@@ -586,6 +649,8 @@
         if (chosen === -1) {
           scenePlaying = false;
           mode = 'idle';
+          if (audioSynced) narrationAudio.pause();
+          audioSynced = false;
           timelineFill.style.width = '100%';
           status.textContent = 'Scene complete';
           document.querySelector('#scenePlan').textContent = 'Completed: Idle → Point → Walk → Think → Wave';
