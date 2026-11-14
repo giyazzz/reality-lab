@@ -388,64 +388,58 @@
       const idleBreath = mode === 'idle' ? Math.sin(t * 2.1) : 0;
       torso.scale.y = 1 + idleBreath * 0.018;
       head.rotation.z = mode === 'idle' ? Math.sin(t * 1.15) * 0.025 : 0;
+      // Define the destination pose, then ease every joint toward it.
+      // This prevents abrupt snapping when switching between animation actions.
+      let targetLeftLegX = 0;
+      let targetRightLegX = 0;
+      let targetLeftArmX = 0;
+      let targetRightArmX = 0;
+      let targetLeftArmZ = 0;
+      let targetRightArmZ = 0;
+      let targetBodyY = 0;
+      let targetBodyX = 0;
+      let targetBodyTurn = 0;
+
       if (mode === 'walk' || mode === 'run') {
         const pace = mode === 'run' ? 11 : 7;
         const amplitude = mode === 'run' ? 0.78 : 0.48;
         const swing = Math.sin(t * pace) * amplitude;
-        leftLeg.rotation.x = swing;
-        rightLeg.rotation.x = -swing;
-        leftArm.rotation.x = -swing * 0.62;
-        rightArm.rotation.x = swing * 0.62;
-        // Clear pose offsets left by Wave/Point/Think so the arm cannot twist into the torso.
-        leftArm.rotation.z = 0;
-        rightArm.rotation.z = 0;
-        character.rotation.y = 0;
-        character.position.y = Math.abs(Math.sin(t * pace)) * (mode === 'run' ? 0.13 : 0.055);
-        character.position.x = Math.sin(t * 1.8) * 0.12;
+        targetLeftLegX = swing;
+        targetRightLegX = -swing;
+        targetLeftArmX = -swing * 0.62;
+        targetRightArmX = swing * 0.62;
+        targetBodyY = Math.abs(Math.sin(t * pace)) * (mode === 'run' ? 0.13 : 0.055);
+        targetBodyX = Math.sin(t * 1.8) * 0.12;
       } else if (mode === 'jump') {
-        leftLeg.rotation.x = 0.25;
-        rightLeg.rotation.x = -0.25;
-        leftArm.rotation.x = -2.4;
-        rightArm.rotation.x = -2.4;
-        character.position.y = Math.max(0, Math.sin(t * 3.2) * 0.95);
-        character.position.x = 0;
-        character.rotation.y = 0;
+        targetLeftLegX = 0.25;
+        targetRightLegX = -0.25;
+        targetLeftArmX = -2.4;
+        targetRightArmX = -2.4;
+        targetBodyY = Math.max(0, Math.sin(t * 3.2) * 0.95);
       } else if (mode === 'point') {
-        leftLeg.rotation.x = 0;
-        rightLeg.rotation.x = 0;
-        leftArm.rotation.x = 0;
-        rightArm.rotation.x = -1.25;
-        rightArm.rotation.z = -0.45;
-        character.position.y = 0;
-        character.position.x = 0;
-        character.rotation.y = -0.12;
+        targetRightArmX = -1.25;
+        targetRightArmZ = -0.45;
+        targetBodyTurn = -0.12;
       } else if (mode === 'think') {
-        leftLeg.rotation.x = 0;
-        rightLeg.rotation.x = 0;
-        leftArm.rotation.x = 0;
-        rightArm.rotation.x = -2.15;
-        rightArm.rotation.z = 0.45;
-        character.position.y = 0;
-        character.position.x = 0;
-        character.rotation.y = 0.08;
+        targetRightArmX = -2.15;
+        targetRightArmZ = 0.45;
+        targetBodyTurn = 0.08;
       } else if (mode === 'wave') {
-        leftLeg.rotation.x = 0;
-        rightLeg.rotation.x = 0;
-        leftArm.rotation.x = 0;
-        rightArm.rotation.z = -0.15 + Math.sin(t * 6) * 0.18;
-        rightArm.rotation.x = -2.35 + Math.sin(t * 6) * 0.12;
-        character.position.y = 0;
-        character.rotation.y = Math.sin(t * 1.5) * 0.08;
-      } else {
-        leftLeg.rotation.x = THREE.MathUtils.damp(leftLeg.rotation.x, 0, 8, clock.getDelta());
-        rightLeg.rotation.x = THREE.MathUtils.damp(rightLeg.rotation.x, 0, 8, 0.016);
-        leftArm.rotation.x = THREE.MathUtils.damp(leftArm.rotation.x, 0, 8, 0.016);
-        rightArm.rotation.x = THREE.MathUtils.damp(rightArm.rotation.x, 0, 8, 0.016);
-        rightArm.rotation.z = THREE.MathUtils.damp(rightArm.rotation.z, 0, 8, 0.016);
-        character.position.y = 0;
-        character.position.x = 0;
-        character.rotation.y = 0;
+        targetRightArmZ = -0.15 + Math.sin(t * 6) * 0.18;
+        targetRightArmX = -2.35 + Math.sin(t * 6) * 0.12;
+        targetBodyTurn = Math.sin(t * 1.5) * 0.08;
       }
+
+      const smooth = (current, target) => THREE.MathUtils.damp(current, target, 10, 0.016);
+      leftLeg.rotation.x = smooth(leftLeg.rotation.x, targetLeftLegX);
+      rightLeg.rotation.x = smooth(rightLeg.rotation.x, targetRightLegX);
+      leftArm.rotation.x = smooth(leftArm.rotation.x, targetLeftArmX);
+      rightArm.rotation.x = smooth(rightArm.rotation.x, targetRightArmX);
+      leftArm.rotation.z = smooth(leftArm.rotation.z, targetLeftArmZ);
+      rightArm.rotation.z = smooth(rightArm.rotation.z, targetRightArmZ);
+      character.position.y = smooth(character.position.y, targetBodyY);
+      character.position.x = smooth(character.position.x, targetBodyX);
+      character.rotation.y = smooth(character.rotation.y, targetBodyTurn);
       renderer.render(scene, camera);
     }
     animate();
