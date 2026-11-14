@@ -172,6 +172,15 @@
     const leftLeg = limb(character, -0.105, 0.94, 0.49, 0.43, dark);
     const rightLeg = limb(character, 0.105, 0.94, 0.49, 0.43, dark);
 
+    
+    // Simple hand and shoe shapes make the character read clearly at a distance.
+    const leftHand = sphere(leftArm, 0.115, jointMat, [0, -0.91, 0]);
+    const rightHand = sphere(rightArm, 0.115, jointMat, [0, -0.91, 0]);
+    const leftFoot = sphere(leftLeg, 0.14, dark, [0, -0.91, 0.11]);
+    const rightFoot = sphere(rightLeg, 0.14, dark, [0, -0.91, 0.11]);
+    leftFoot.scale.set(0.9, 0.55, 1.45);
+    rightFoot.scale.set(0.9, 0.55, 1.45);
+
     // Small circular stage under the character.
     const stage = new THREE.Mesh(
       new THREE.CylinderGeometry(1.25, 1.25, 0.08, 64),
