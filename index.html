@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>REALITY LAB — Stickman Prototype</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; overflow: hidden; background: #080d16; color: #eef4ff; font-family: Inter, system-ui, sans-serif; }
+    #scene { position: fixed; inset: 0; }
+    .panel { position: fixed; left: 24px; top: 24px; z-index: 2; width: min(340px, calc(100vw - 48px)); padding: 20px; border: 1px solid #26354b; border-radius: 16px; background: rgba(11, 19, 32, .88); box-shadow: 0 16px 50px #0006; backdrop-filter: blur(12px); }
+    h1 { margin: 0 0 6px; font-size: 18px; letter-spacing: .16em; }
+    .sub { margin: 0 0 18px; color: #9aabc3; font-size: 13px; }
+    .buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+    button { border: 1px solid #38506d; border-radius: 9px; padding: 9px 13px; background: #14243a; color: #eef4ff; cursor: pointer; font-weight: 600; }
+    button:hover, button.active { background: #1762a4; border-color: #49a5ff; }
+    #status { margin-top: 14px; color: #8fa8c7; font-size: 12px; }
+    .hint { position: fixed; right: 22px; bottom: 18px; color: #73849c; font-size: 12px; }
+  </style>
+  <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js" } }
+  </script>
+</head>
+<body>
+  <div id="scene"></div>
+  <section class="panel">
+    <h1>REALITY LAB</h1>
+    <p class="sub">Animation engine · Prototype 01</p>
+    <div class="buttons">
+      <button id="idle" class="active">Idle</button>
+      <button id="walk">Walk</button>
+      <button id="wave">Wave</button>
+      <button id="reset">Reset</button>
+    </div>
+    <div id="status">Loading 3D scene…</div>
+  </section>
+  <div class="hint">Browser-based 3D prototype · No installation required</div>
+  <script type="module">
+    import * as THREE from 'three';
+
+    const mount = document.querySelector('#scene');
+    const status = document.querySelector('#status');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x080d16);
+    scene.fog = new THREE.Fog(0x080d16, 10, 28);
+
+    const camera = new THREE.PerspectiveCamera(36, innerWidth / innerHeight, 0.1, 100);
+    camera.position.set(4.5, 3.1, 7.5);
+    camera.lookAt(0, 1.35, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    mount.appendChild(renderer.domElement);
+
+    scene.add(new THREE.HemisphereLight(0xbfdcff, 0x182235, 2.0));
+    const key = new THREE.DirectionalLight(0xffffff, 3.0);
+    key.position.set(-3, 7, 5);
+    key.castShadow = true;
+    key.shadow.mapSize.set(1024, 1024);
+    scene.add(key);
+
+    const floor = new THREE.Mesh(
+      new THREE.PlaneGeometry(200, 200),
+      new THREE.MeshStandardMaterial({ color: 0x111c2b, roughness: 0.9 })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -0.035;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const grid = new THREE.GridHelper(30, 30, 0x28415e, 0x1a2b40);
+    grid.position.y = -0.02;
+    scene.add(grid);
+
+    const blue = new THREE.MeshStandardMaterial({ color: 0x7dc4ff, roughness: 0.48, metalness: 0.12 });
+    const jointMat = new THREE.MeshStandardMaterial({ color: 0xdcecff, roughness: 0.55 });
+    const dark = new THREE.MeshStandardMaterial({ color: 0x31506f, roughness: 0.65 });
+
+    const character = new THREE.Group();
+    scene.add(character);
+
+    function sphere(parent, radius, material, position) {
+      const mesh = new THREE.Mesh(new THREE.SphereGeometry(radius, 24, 18), material);
+      mesh.position.set(...position);
+      mesh.castShadow = true;
+      parent.add(mesh);
+      return mesh;
+    }
+
+    function capsuleBetween(parent, a, b, radius, material) {
+      const start = new THREE.Vector3(...a);
+      const end = new THREE.Vector3(...b);
+      const direction = new THREE.Vector3().subVectors(end, start);
+      const mesh = new THREE.Mesh(
+        new THREE.CylinderGeometry(radius, radius, direction.length(), 16),
+        material
+      );
+      mesh.position.copy(start).add(end).multiplyScalar(0.5);
+      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
+      mesh.castShadow = true;
+      parent.add(mesh);
+      return mesh;
+    }
+
+    // Torso and head
+    capsuleBetween(character, [0, 0.92, 0], [0, 1.85, 0], 0.16, blue);
+    sphere(character, 0.29, jointMat, [0, 2.22, 0]);
+    sphere(character, 0.055, dark, [-0.105, 2.25, 0.255]);
+    sphere(character, 0.055, dark, [0.105, 2.25, 0.255]);
+
+    // Limbs are pivot groups so their motion stays consistent.
+    function limb(parent, x, y, upperLength, lowerLength, material) {
+      const pivot = new THREE.Group();
+      pivot.position.set(x, y, 0);
+      parent.add(pivot);
+      capsuleBetween(pivot, [0, 0, 0], [0, -upperLength, 0], 0.095, material);
+      sphere(pivot, 0.105, jointMat, [0, -upperLength, 0]);
+      capsuleBetween(pivot, [0, -upperLength, 0], [0, -upperLength-lowerLength, 0], 0.075, material);
+      return pivot;
+    }
+
+    const leftArm = limb(character, -0.22, 1.77, 0.48, 0.43, blue);
+    const rightArm = limb(character, 0.22, 1.77, 0.48, 0.43, blue);
+    const leftLeg = limb(character, -0.105, 0.94, 0.49, 0.43, dark);
+    const rightLeg = limb(character, 0.105, 0.94, 0.49, 0.43, dark);
+
+    // Small circular stage under the character.
+    const stage = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.25, 1.25, 0.08, 64),
+      new THREE.MeshStandardMaterial({ color: 0x17283c, roughness: 0.7 })
+    );
+    stage.position.y = 0;
+    stage.receiveShadow = true;
+    stage.castShadow = true;
+    scene.add(stage);
+
+    let mode = 'idle';
+    let startTime = performance.now();
+    const buttons = [...document.querySelectorAll('button')];
+    function setMode(next) {
+      mode = next;
+      startTime = performance.now();
+      buttons.forEach(button => button.classList.toggle('active', button.id === next));
+      status.textContent = next === 'idle' ? 'Standing pose' : next === 'walk' ? 'Walking animation' : 'Waving animation';
+    }
+    document.querySelector('#idle').addEventListener('click', () => setMode('idle'));
+    document.querySelector('#walk').addEventListener('click', () => setMode('walk'));
+    document.querySelector('#wave').addEventListener('click', () => setMode('wave'));
+    document.querySelector('#reset').addEventListener('click', () => {
+      character.position.set(0, 0, 0);
+      character.rotation.set(0, 0, 0);
+      setMode('idle');
+    });
+
+    const clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      const t = clock.getElapsedTime();
+      if (mode === 'walk') {
+        const swing = Math.sin(t * 7) * 0.48;
+        leftLeg.rotation.x = swing;
+        rightLeg.rotation.x = -swing;
+        leftArm.rotation.x = -swing * 0.75;
+        rightArm.rotation.x = swing * 0.75;
+        character.position.y = Math.abs(Math.sin(t * 7)) * 0.055;
+        character.position.x = Math.sin(t * 1.8) * 0.12;
+      } else if (mode === 'wave') {
+        leftLeg.rotation.x = 0;
+        rightLeg.rotation.x = 0;
+        leftArm.rotation.x = 0;
+        rightArm.rotation.z = -0.15 + Math.sin(t * 6) * 0.18;
+        rightArm.rotation.x = -2.35 + Math.sin(t * 6) * 0.12;
+        character.position.y = 0;
+        character.rotation.y = Math.sin(t * 1.5) * 0.08;
+      } else {
+        leftLeg.rotation.x = THREE.MathUtils.damp(leftLeg.rotation.x, 0, 8, clock.getDelta());
+        rightLeg.rotation.x = THREE.MathUtils.damp(rightLeg.rotation.x, 0, 8, 0.016);
+        leftArm.rotation.x = THREE.MathUtils.damp(leftArm.rotation.x, 0, 8, 0.016);
+        rightArm.rotation.x = THREE.MathUtils.damp(rightArm.rotation.x, 0, 8, 0.016);
+        rightArm.rotation.z = THREE.MathUtils.damp(rightArm.rotation.z, 0, 8, 0.016);
+        character.position.y = 0;
+        character.position.x = 0;
+        character.rotation.y = 0;
+      }
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    addEventListener('resize', () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+    status.textContent = 'Ready — choose an action';
+  </script>
+</body>
+</html>
