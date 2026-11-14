@@ -90,7 +90,7 @@
         <button id="loadScene">Load JSON</button>
         <button id="playCustom">▶ Play custom scene</button>
       </div>
-      <div style="margin-top:7px;color:#73849c;font-size:11px;line-height:1.5">Allowed actions: idle, walk, run, jump, point, think, wave, reach, explain, celebrate. Optional camera: front, side, threequarter. Optional prop: show, hide. Duration is in milliseconds.</div>
+      <div style="margin-top:7px;color:#73849c;font-size:11px;line-height:1.5">Allowed actions: idle, walk, run, jump, point, think, wave, reach, explain, celebrate. Optional camera: front, side, threequarter. Optional prop: show, hide. Optional visual: sphere, cube, planet, atom, ring, none. Duration is in milliseconds.</div>
     </div>
     <div id="scenePlan" style="margin-top:12px;padding-top:10px;border-top:1px solid #26354b;color:#9aabc3;font-size:12px;line-height:1.7">Demo scene: Idle → Point → Walk → Think → Wave</div>
   </section>
@@ -207,11 +207,53 @@
     stage.castShadow = true;
     scene.add(stage);
 
-    // Reusable animated prop for testing object motion in a scene.
-    const prop = new THREE.Mesh(new THREE.IcosahedronGeometry(0.19, 1), new THREE.MeshStandardMaterial({ color: 0x48a8ff, emissive: 0x123d70, roughness: 0.3, metalness: 0.25 }));
-    prop.castShadow = true;
+    // Reusable scientific visual prop library. Each scene can select a visual preset.
+    const prop = new THREE.Group();
     scene.add(prop);
     let propVisible = true;
+    let propType = 'sphere';
+    const propBlue = new THREE.MeshStandardMaterial({ color: 0x48a8ff, emissive: 0x123d70, roughness: 0.3, metalness: 0.25 });
+    const propLight = new THREE.MeshStandardMaterial({ color: 0xb9e2ff, roughness: 0.35, metalness: 0.12 });
+    const propDark = new THREE.MeshStandardMaterial({ color: 0x24547d, roughness: 0.4, metalness: 0.2 });
+    function addPropMesh(geometry, material, position = [0, 0, 0], scale = [1, 1, 1]) {
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.set(...position);
+      mesh.scale.set(...scale);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      prop.add(mesh);
+      return mesh;
+    }
+    function setPropType(type) {
+      const allowed = ['sphere', 'cube', 'planet', 'atom', 'ring', 'none'];
+      if (!allowed.includes(type)) throw new Error('Unsupported visual: ' + type);
+      while (prop.children.length) {
+        const child = prop.children.pop();
+        child.geometry?.dispose();
+        prop.remove(child);
+      }
+      propType = type;
+      if (type === 'sphere') addPropMesh(new THREE.IcosahedronGeometry(0.23, 2), propBlue);
+      if (type === 'cube') addPropMesh(new THREE.BoxGeometry(0.38, 0.38, 0.38), propBlue);
+      if (type === 'planet') {
+        addPropMesh(new THREE.SphereGeometry(0.25, 32, 24), propBlue);
+        const ring = addPropMesh(new THREE.TorusGeometry(0.38, 0.035, 10, 64), propLight);
+        ring.rotation.x = 1.15;
+      }
+      if (type === 'ring') addPropMesh(new THREE.TorusGeometry(0.28, 0.07, 16, 64), propBlue);
+      if (type === 'atom') {
+        addPropMesh(new THREE.SphereGeometry(0.10, 20, 16), propLight);
+        for (let i = 0; i < 3; i++) {
+          const orbit = addPropMesh(new THREE.TorusGeometry(0.34, 0.012, 8, 64), propDark);
+          orbit.rotation.set(i * 0.9, i * 1.05, i * 0.55);
+          const electron = addPropMesh(new THREE.SphereGeometry(0.055, 16, 12), propLight);
+          electron.position.set(Math.cos(i * 2.1) * 0.34, Math.sin(i * 2.1) * 0.34, 0);
+        }
+      }
+      prop.visible = propVisible && type !== 'none';
+      document.querySelector('#object').textContent = 'Visual: ' + type;
+    }
+    setPropType('sphere');
 
     let mode = 'idle';
     let startTime = performance.now();
@@ -265,7 +307,9 @@
         const propMode = step.prop == null ? null : String(step.prop);
         if (camera !== null && !['front', 'side', 'threequarter'].includes(camera)) throw new Error('Step ' + (index + 1) + ': camera must be front, side, or threequarter.');
         if (propMode !== null && !['show', 'hide'].includes(propMode)) throw new Error('Step ' + (index + 1) + ': prop must be show or hide.');
-        return { action: step.action, duration, label: String(step.label || step.action).slice(0, 60), ...(camera ? { camera } : {}), ...(propMode ? { prop: propMode } : {}) };
+        const visual = step.visual == null ? null : String(step.visual);
+        if (visual !== null && !['sphere', 'cube', 'planet', 'atom', 'ring', 'none'].includes(visual)) throw new Error('Step ' + (index + 1) + ': unsupported visual.');
+        return { action: step.action, duration, label: String(step.label || step.action).slice(0, 60), ...(camera ? { camera } : {}), ...(propMode ? { prop: propMode } : {}), ...(visual ? { visual } : {}) };
       });
     }
 
@@ -286,7 +330,8 @@
         '- "duration": integer milliseconds, between 300 and 30000',
         '- "label": short visual description, maximum 60 characters',
         '- Optional "camera": front, side, or threequarter',
-        '- Optional "prop": show or hide (controls the blue floating object)',
+        '- Optional "prop": show or hide',
+        '- Optional "visual": sphere, cube, planet, atom, ring, or none',
         '',
         'Storyboard rules:',
         '1. Preserve the meaning and order of the narration. Do not invent scientific facts.',
@@ -298,7 +343,8 @@
         '7. Labels should describe what the viewer should understand from the scene, not repeat the full narration.',
         '8. Keep actions physically plausible and suitable for a simple stick-figure rig.',
         '9. Use camera changes sparingly for visual variety; use front for direct explanation, side for profile views, threequarter for the default cinematic view.',
-        '10. Set prop to show when the blue floating object helps illustrate a beat, or hide when it would distract. Omit either optional field when no change is needed.',
+        '10. Set prop to show when a visual helps illustrate a beat, or hide when it would distract.',
+        '11. Choose visual presets when useful: atom for atomic structure, planet for a ringed planet, ring for a circular object, cube for a solid, sphere for a general object, none for no object. Omit when no change is needed.',
         '',
         'NARRATION SCRIPT:',
         narration
@@ -436,8 +482,8 @@
     document.querySelector('#threequarter').addEventListener('click', () => setCamera(4.5, 3.1, 7.5));
     document.querySelector('#object').addEventListener('click', () => {
       propVisible = !propVisible;
-      prop.visible = propVisible;
-      document.querySelector('#object').textContent = 'Moving object: ' + (propVisible ? 'on' : 'off');
+      prop.visible = propVisible && propType !== 'none';
+      document.querySelector('#object').textContent = 'Visual: ' + propType + (propVisible ? ' (on)' : ' (off)');
     });
     document.querySelector('#reset').addEventListener('click', () => {
       character.position.set(0, 0, 0);
@@ -473,17 +519,18 @@
           if (step.camera === 'front') setCamera(0, 2.7, 8.5);
           else if (step.camera === 'side') setCamera(8.5, 2.7, 0);
           else if (step.camera === 'threequarter') setCamera(4.5, 3.1, 7.5);
-          if (step.prop === 'show' || step.prop === 'hide') {
-            propVisible = step.prop === 'show';
-            prop.visible = propVisible;
-            document.querySelector('#object').textContent = 'Moving object: ' + (propVisible ? 'on' : 'off');
-          }
+          if (step.prop === 'show' || step.prop === 'hide') propVisible = step.prop === 'show';
+          if (step.visual) setPropType(step.visual);
+          prop.visible = propVisible && propType !== 'none';
           status.textContent = 'Scene action: ' + step.action;
         }
       }
       prop.position.set(Math.cos(t * 1.25) * 1.75, 1.15 + Math.sin(t * 2.2) * 0.35, Math.sin(t * 1.25) * 1.75);
-      prop.rotation.x = t * 1.4;
-      prop.rotation.y = t * 1.8;
+      prop.rotation.x = t * 0.35;
+      prop.rotation.y = t * 0.8;
+      prop.children.forEach((part, index) => {
+        if (propType === 'atom' && index % 2 === 1) part.rotation.z += delta * (index % 2 ? 0.7 : -0.7);
+      });
       // Camera glides to each selected angle instead of snapping.
       camera.position.x = THREE.MathUtils.damp(camera.position.x, cameraTarget.x, 5, delta);
       camera.position.y = THREE.MathUtils.damp(camera.position.y, cameraTarget.y, 5, delta);
