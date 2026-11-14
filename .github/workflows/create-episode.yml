@@ -22,7 +22,7 @@ jobs:
       - run: npm install
       - name: Generate research draft, storyboard and narration
         env:
-          TOPIC: \${{ inputs.topic }}
+          TOPIC: ${{ inputs.topic }}
         run: npm run generate
       - run: npm run render
       - uses: actions/upload-artifact@v4
