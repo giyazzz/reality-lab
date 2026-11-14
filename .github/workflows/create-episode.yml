@@ -1,0 +1,70 @@
+name: Create REALITY LAB episode
+on:
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: Science topic for this episode
+        required: true
+        type: string
+      upload_private:
+        description: Upload privately after generation (requires environment approval)
+        required: true
+        default: false
+        type: boolean
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: npm install
+      - name: Generate research, script, storyboard and narration
+        env:
+          TOPIC: \${{ inputs.topic }}
+          ANTHROPIC_API_KEY: \${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_MODEL: \${{ vars.CLAUDE_MODEL }}
+          ELEVENLABS_API_KEY: \${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVENLABS_VOICE_ID: \${{ secrets.ELEVENLABS_VOICE_ID }}
+          ELEVENLABS_MODEL_ID: \${{ vars.ELEVENLABS_MODEL_ID }}
+        run: npm run generate
+      - run: npm run render
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reality-lab-episode
+          path: output/
+          retention-days: 14
+  upload-private:
+    if: \${{ inputs.upload_private }}
+    needs: build
+    runs-on: ubuntu-latest
+    environment: youtube-approval
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install
+      - uses: actions/download-artifact@v4
+        with:
+          name: reality-lab-episode
+          path: output/
+      - name: Upload to YouTube as private
+        env:
+          YT_CLIENT_ID: \${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: \${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: \${{ secrets.YT_REFRESH_TOKEN }}
+        run: npm run upload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: youtube-private-upload-receipt
+          path: output/youtube-upload.json
+          retention-days: 30
