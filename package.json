@@ -5,12 +5,9 @@
   "type": "module",
   "scripts": {
     "generate": "node pipeline/generate.mjs",
-    "render": "node pipeline/render.mjs",
-    "upload": "node pipeline/upload.mjs"
+    "render": "node pipeline/render.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.68.0",
-    "googleapis": "^144.0.0",
     "sharp": "^0.34.5"
   }
 }
