@@ -1,4 +1,4 @@
-name: Create REALITY LAB episode
+name: Create REALITY LAB free episode
 on:
   workflow_dispatch:
     inputs:
@@ -6,63 +6,27 @@ on:
         description: Science topic for this episode
         required: true
         type: string
-      upload_private:
-        description: Upload privately after generation (requires environment approval)
-        required: true
-        default: false
-        type: boolean
 permissions:
   contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install FFmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install free open-source rendering and speech tools
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg espeak-ng
       - run: npm install
-      - name: Generate research, script, storyboard and narration
+      - name: Generate research draft, storyboard and narration
         env:
-          TOPIC: ${{ inputs.topic }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}
-          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
-          ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
-          ELEVENLABS_MODEL_ID: ${{ vars.ELEVENLABS_MODEL_ID }}
+          TOPIC: \${{ inputs.topic }}
         run: npm run generate
       - run: npm run render
       - uses: actions/upload-artifact@v4
         with:
-          name: reality-lab-episode
+          name: reality-lab-free-episode
           path: output/
           retention-days: 14
-  upload-private:
-    if: ${{ inputs.upload_private }}
-    needs: build
-    runs-on: ubuntu-latest
-    environment: youtube-approval
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: npm install
-      - uses: actions/download-artifact@v4
-        with:
-          name: reality-lab-episode
-          path: output/
-      - name: Upload to YouTube as private
-        env:
-          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
-          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
-          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
-        run: npm run upload
-      - uses: actions/upload-artifact@v4
-        with:
-          name: youtube-private-upload-receipt
-          path: output/youtube-upload.json
-          retention-days: 30
