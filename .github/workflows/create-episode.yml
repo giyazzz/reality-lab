@@ -27,12 +27,12 @@ jobs:
       - run: npm install
       - name: Generate research, script, storyboard and narration
         env:
-          TOPIC: \${{ inputs.topic }}
-          ANTHROPIC_API_KEY: \${{ secrets.ANTHROPIC_API_KEY }}
-          CLAUDE_MODEL: \${{ vars.CLAUDE_MODEL }}
-          ELEVENLABS_API_KEY: \${{ secrets.ELEVENLABS_API_KEY }}
-          ELEVENLABS_VOICE_ID: \${{ secrets.ELEVENLABS_VOICE_ID }}
-          ELEVENLABS_MODEL_ID: \${{ vars.ELEVENLABS_MODEL_ID }}
+          TOPIC: ${{ inputs.topic }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
+          ELEVENLABS_MODEL_ID: ${{ vars.ELEVENLABS_MODEL_ID }}
         run: npm run generate
       - run: npm run render
       - uses: actions/upload-artifact@v4
@@ -41,7 +41,7 @@ jobs:
           path: output/
           retention-days: 14
   upload-private:
-    if: \${{ inputs.upload_private }}
+    if: ${{ inputs.upload_private }}
     needs: build
     runs-on: ubuntu-latest
     environment: youtube-approval
@@ -57,9 +57,9 @@ jobs:
           path: output/
       - name: Upload to YouTube as private
         env:
-          YT_CLIENT_ID: \${{ secrets.YT_CLIENT_ID }}
-          YT_CLIENT_SECRET: \${{ secrets.YT_CLIENT_SECRET }}
-          YT_REFRESH_TOKEN: \${{ secrets.YT_REFRESH_TOKEN }}
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
         run: npm run upload
       - uses: actions/upload-artifact@v4
         with:
