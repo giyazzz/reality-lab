@@ -23,6 +23,9 @@
     #sceneJson { width:100%; height:150px; resize:vertical; border:1px solid #38506d; border-radius:8px; padding:9px; background:#081321; color:#cfe2fa; font:11px/1.5 ui-monospace,monospace; }
     .panel { max-height: calc(100vh - 48px); overflow-y:auto; }
     .hint { position: fixed; right: 22px; bottom: 18px; color: #73849c; font-size: 12px; }
+    .sceneCaption { position:fixed; left:50%; bottom:34px; z-index:1; transform:translateX(-50%); max-width:min(720px,calc(100vw - 390px)); padding:10px 16px; border:1px solid #36516f; border-radius:10px; background:rgba(7,14,25,.82); color:#eaf4ff; text-align:center; font-size:15px; line-height:1.4; backdrop-filter:blur(8px); pointer-events:none; }
+    .sceneCaption:empty { display:none; }
+    @media (max-width: 600px) { .sceneCaption { left:10px; right:10px; bottom:14px; max-width:none; transform:none; font-size:13px; } }
     .timeline { height: 5px; margin-top: 10px; overflow: hidden; border-radius: 99px; background: #1b2b40; }
     #timelineFill { width: 0%; height: 100%; background: #49a5ff; transition: width .08s linear; }
     .settingsRow { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; color:#9aabc3; font-size:12px; }
@@ -100,6 +103,7 @@
     </div>
     <div id="scenePlan" style="margin-top:12px;padding-top:10px;border-top:1px solid #26354b;color:#9aabc3;font-size:12px;line-height:1.7">Demo scene: Idle → Point → Walk → Think → Wave</div>
   </section>
+  <div id="sceneCaption" class="sceneCaption" aria-live="polite"></div>
   <div class="hint">Browser-based 3D prototype · No installation required</div>
   <script type="module">
     import * as THREE from 'three';
@@ -366,6 +370,7 @@
       character.position.set(0, 0, 0);
       character.rotation.set(0, 0, 0);
       timelineFill.style.width = '0%';
+      document.querySelector('#sceneCaption').textContent = '';
       if (audioSynced) {
         narrationAudio.pause();
         narrationAudio.currentTime = 0;
@@ -397,6 +402,14 @@
       scenePlaying = false;
       audioStatus.textContent = 'Narration stopped.';
       status.textContent = 'Playback stopped';
+    });
+    narrationAudio.addEventListener('ended', () => {
+      if (audioSynced) {
+        audioSynced = false;
+        scenePlaying = false;
+        status.textContent = 'Narration ended · scene preview stopped';
+        audioStatus.textContent = 'Narration playback finished.';
+      }
     });
     function stopScene() {
       scenePlaying = false;
@@ -658,6 +671,7 @@
           activeSceneIndex = chosen;
           mode = activeScene[chosen].action;
           document.querySelector('#scenePlan').textContent = 'Now: ' + activeScene[chosen].label + ' · ' + (chosen + 1) + '/' + activeScene.length;
+          document.querySelector('#sceneCaption').textContent = activeScene[chosen].label;
           const step = activeScene[chosen];
           if (step.camera === 'front') setCamera(0, 2.7, 8.5);
           else if (step.camera === 'side') setCamera(8.5, 2.7, 0);
