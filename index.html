@@ -248,8 +248,12 @@
         const swing = Math.sin(t * pace) * amplitude;
         leftLeg.rotation.x = swing;
         rightLeg.rotation.x = -swing;
-        leftArm.rotation.x = -swing * 0.75;
-        rightArm.rotation.x = swing * 0.75;
+        leftArm.rotation.x = -swing * 0.62;
+        rightArm.rotation.x = swing * 0.62;
+        // Clear pose offsets left by Wave/Point/Think so the arm cannot twist into the torso.
+        leftArm.rotation.z = 0;
+        rightArm.rotation.z = 0;
+        character.rotation.y = 0;
         character.position.y = Math.abs(Math.sin(t * pace)) * (mode === 'run' ? 0.13 : 0.055);
         character.position.x = Math.sin(t * 1.8) * 0.12;
       } else if (mode === 'jump') {
