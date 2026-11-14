@@ -151,8 +151,8 @@
     }
 
     // Torso and head
-    capsuleBetween(character, [0, 0.92, 0], [0, 1.85, 0], 0.16, blue);
-    sphere(character, 0.29, jointMat, [0, 2.22, 0]);
+    const torso = capsuleBetween(character, [0, 0.92, 0], [0, 1.85, 0], 0.16, blue);
+    const head = sphere(character, 0.29, jointMat, [0, 2.22, 0]);
     sphere(character, 0.055, dark, [-0.105, 2.25, 0.255]);
     sphere(character, 0.055, dark, [0.105, 2.25, 0.255]);
 
@@ -384,6 +384,10 @@
       prop.position.set(Math.cos(t * 1.25) * 1.75, 1.15 + Math.sin(t * 2.2) * 0.35, Math.sin(t * 1.25) * 1.75);
       prop.rotation.x = t * 1.4;
       prop.rotation.y = t * 1.8;
+      // Subtle idle life: gentle breathing and small head movement.
+      const idleBreath = mode === 'idle' ? Math.sin(t * 2.1) : 0;
+      torso.scale.y = 1 + idleBreath * 0.018;
+      head.rotation.z = mode === 'idle' ? Math.sin(t * 1.15) * 0.025 : 0;
       if (mode === 'walk' || mode === 'run') {
         const pace = mode === 'run' ? 11 : 7;
         const amplitude = mode === 'run' ? 0.78 : 0.48;
