@@ -30,6 +30,10 @@
       <button id="idle" class="active">Idle</button>
       <button id="walk">Walk</button>
       <button id="wave">Wave</button>
+      <button id="run">Run</button>
+      <button id="jump">Jump</button>
+      <button id="point">Point</button>
+      <button id="think">Think</button>
       <button id="reset">Reset</button>
       <button id="front">Front view</button>
       <button id="side">Side view</button>
@@ -155,11 +159,15 @@
       mode = next;
       startTime = performance.now();
       buttons.forEach(button => button.classList.toggle('active', button.id === next));
-      status.textContent = next === 'idle' ? 'Standing pose' : next === 'walk' ? 'Walking animation' : 'Waving animation';
+      status.textContent = ({ idle: 'Standing pose', walk: 'Walking animation', wave: 'Waving animation', run: 'Running animation', jump: 'Jumping animation', point: 'Pointing pose', think: 'Thinking pose' })[next] || 'Animation';
     }
     document.querySelector('#idle').addEventListener('click', () => setMode('idle'));
     document.querySelector('#walk').addEventListener('click', () => setMode('walk'));
     document.querySelector('#wave').addEventListener('click', () => setMode('wave'));
+    document.querySelector('#run').addEventListener('click', () => setMode('run'));
+    document.querySelector('#jump').addEventListener('click', () => setMode('jump'));
+    document.querySelector('#point').addEventListener('click', () => setMode('point'));
+    document.querySelector('#think').addEventListener('click', () => setMode('think'));
     function setCamera(x, y, z) {
       camera.position.set(x, y, z);
       camera.lookAt(0, 1.25, 0);
@@ -185,14 +193,42 @@
       prop.position.set(Math.cos(t * 1.25) * 1.75, 1.15 + Math.sin(t * 2.2) * 0.35, Math.sin(t * 1.25) * 1.75);
       prop.rotation.x = t * 1.4;
       prop.rotation.y = t * 1.8;
-      if (mode === 'walk') {
-        const swing = Math.sin(t * 7) * 0.48;
+      if (mode === 'walk' || mode === 'run') {
+        const pace = mode === 'run' ? 11 : 7;
+        const amplitude = mode === 'run' ? 0.78 : 0.48;
+        const swing = Math.sin(t * pace) * amplitude;
         leftLeg.rotation.x = swing;
         rightLeg.rotation.x = -swing;
         leftArm.rotation.x = -swing * 0.75;
         rightArm.rotation.x = swing * 0.75;
-        character.position.y = Math.abs(Math.sin(t * 7)) * 0.055;
+        character.position.y = Math.abs(Math.sin(t * pace)) * (mode === 'run' ? 0.13 : 0.055);
         character.position.x = Math.sin(t * 1.8) * 0.12;
+      } else if (mode === 'jump') {
+        leftLeg.rotation.x = 0.25;
+        rightLeg.rotation.x = -0.25;
+        leftArm.rotation.x = -2.4;
+        rightArm.rotation.x = -2.4;
+        character.position.y = Math.max(0, Math.sin(t * 3.2) * 0.95);
+        character.position.x = 0;
+        character.rotation.y = 0;
+      } else if (mode === 'point') {
+        leftLeg.rotation.x = 0;
+        rightLeg.rotation.x = 0;
+        leftArm.rotation.x = 0;
+        rightArm.rotation.x = -1.25;
+        rightArm.rotation.z = -0.45;
+        character.position.y = 0;
+        character.position.x = 0;
+        character.rotation.y = -0.12;
+      } else if (mode === 'think') {
+        leftLeg.rotation.x = 0;
+        rightLeg.rotation.x = 0;
+        leftArm.rotation.x = 0;
+        rightArm.rotation.x = -2.15;
+        rightArm.rotation.z = 0.45;
+        character.position.y = 0;
+        character.position.x = 0;
+        character.rotation.y = 0.08;
       } else if (mode === 'wave') {
         leftLeg.rotation.x = 0;
         rightLeg.rotation.x = 0;
