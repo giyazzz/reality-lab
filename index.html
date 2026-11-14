@@ -34,6 +34,8 @@
       <button id="jump">Jump</button>
       <button id="point">Point</button>
       <button id="think">Think</button>
+      <button id="playScene">▶ Play demo scene</button>
+      <button id="stopScene">■ Stop scene</button>
       <button id="reset">Reset</button>
       <button id="front">Front view</button>
       <button id="side">Side view</button>
@@ -41,6 +43,7 @@
       <button id="object">Moving object: on</button>
     </div>
     <div id="status">Loading 3D scene…</div>
+    <div id="scenePlan" style="margin-top:12px;padding-top:10px;border-top:1px solid #26354b;color:#9aabc3;font-size:12px;line-height:1.7">Demo scene: Idle → Point → Walk → Think → Wave</div>
   </section>
   <div class="hint">Browser-based 3D prototype · No installation required</div>
   <script type="module">
@@ -154,6 +157,32 @@
 
     let mode = 'idle';
     let startTime = performance.now();
+    const demoScene = [
+      { action: 'idle', duration: 1800, label: 'Establishing shot' },
+      { action: 'point', duration: 1800, label: 'Introduce the subject' },
+      { action: 'walk', duration: 2600, label: 'Move into the scene' },
+      { action: 'think', duration: 2200, label: 'Consider the idea' },
+      { action: 'wave', duration: 1800, label: 'End pose' }
+    ];
+    let scenePlaying = false;
+    let sceneStart = 0;
+    let activeSceneIndex = -1;
+    function stopScene() {
+      scenePlaying = false;
+      activeSceneIndex = -1;
+      setMode('idle');
+      status.textContent = 'Scene stopped';
+      document.querySelector('#scenePlan').textContent = 'Demo scene: Idle → Point → Walk → Think → Wave';
+    }
+    document.querySelector('#playScene').addEventListener('click', () => {
+      scenePlaying = true;
+      sceneStart = performance.now();
+      activeSceneIndex = -1;
+      character.position.set(0, 0, 0);
+      character.rotation.set(0, 0, 0);
+      status.textContent = 'Playing complete demo scene…';
+    });
+    document.querySelector('#stopScene').addEventListener('click', stopScene);
     const buttons = [...document.querySelectorAll('button')];
     function setMode(next) {
       mode = next;
@@ -190,6 +219,26 @@
     function animate() {
       requestAnimationFrame(animate);
       const t = clock.getElapsedTime();
+      if (scenePlaying) {
+        const elapsed = performance.now() - sceneStart;
+        let cursor = 0;
+        let chosen = -1;
+        for (let i = 0; i < demoScene.length; i++) {
+          if (elapsed >= cursor && elapsed < cursor + demoScene[i].duration) { chosen = i; break; }
+          cursor += demoScene[i].duration;
+        }
+        if (chosen === -1) {
+          scenePlaying = false;
+          mode = 'idle';
+          status.textContent = 'Demo scene complete';
+          document.querySelector('#scenePlan').textContent = 'Completed: Idle → Point → Walk → Think → Wave';
+        } else if (chosen !== activeSceneIndex) {
+          activeSceneIndex = chosen;
+          mode = demoScene[chosen].action;
+          document.querySelector('#scenePlan').textContent = 'Now: ' + demoScene[chosen].label + ' · ' + (chosen + 1) + '/' + demoScene.length;
+          status.textContent = 'Scene action: ' + demoScene[chosen].action;
+        }
+      }
       prop.position.set(Math.cos(t * 1.25) * 1.75, 1.15 + Math.sin(t * 2.2) * 0.35, Math.sin(t * 1.25) * 1.75);
       prop.rotation.x = t * 1.4;
       prop.rotation.y = t * 1.8;
