@@ -1,0 +1,53 @@
+name: Render horror chat Short
+on:
+  workflow_dispatch:
+    inputs:
+      style:
+        description: Story format
+        required: true
+        type: choice
+        options:
+          - midnight
+          - woods
+          - group
+          - apartment
+      premise:
+        description: Optional opening-message variation
+        required: false
+        type: string
+      seconds:
+        description: Target duration in seconds
+        required: true
+        default: "65"
+        type: string
+permissions:
+  contents: read
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install free rendering tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg espeak-ng
+      - name: Install project dependencies
+        run: npm install
+      - name: Generate story
+        env:
+          STYLE: ${{ inputs.style }}
+          PREMISE: ${{ inputs.premise }}
+          SECONDS: ${{ inputs.seconds }}
+        run: node horror-factory/scripts/generate.mjs
+      - name: Render vertical video, voices and thumbnail
+        run: node horror-factory/scripts/render.mjs
+      - name: Save finished files
+        uses: actions/upload-artifact@v4
+        with:
+          name: horror-factory-short
+          path: horror-factory/output/
+          retention-days: 14
