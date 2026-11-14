@@ -19,6 +19,7 @@
     .editor label { display:block; margin-bottom:7px; color:#c5d4e8; font-size:12px; font-weight:700; }
     .builderRow { display:flex; gap:6px; margin:8px 0; }
     .builderRow select,.builderRow input { min-width:0; width:50%; border:1px solid #38506d; border-radius:8px; padding:8px; background:#081321; color:#eef4ff; }
+    #scriptInput { width:100%; min-height:125px; resize:vertical; border:1px solid #38506d; border-radius:8px; padding:9px; background:#081321; color:#cfe2fa; font:12px/1.5 system-ui,sans-serif; }
     #sceneJson { width:100%; height:150px; resize:vertical; border:1px solid #38506d; border-radius:8px; padding:9px; background:#081321; color:#cfe2fa; font:11px/1.5 ui-monospace,monospace; }
     .panel { max-height: calc(100vh - 48px); overflow-y:auto; }
     .hint { position: fixed; right: 22px; bottom: 18px; color: #73849c; font-size: 12px; }
@@ -50,6 +51,12 @@
     </div>
     <div id="status">Loading 3D scene…</div>
     <div class="editor">
+      <label for="scriptInput">SCRIPT-TO-SCENE DRAFT</label>
+      <textarea id="scriptInput" placeholder="Paste a short narration script here. Each sentence becomes a draft scene."></textarea>
+      <div class="buttons" style="margin-top:8px;margin-bottom:14px">
+        <button id="generateDraft">Generate scene draft</button>
+      </div>
+      <div style="margin:-7px 0 12px;color:#73849c;font-size:11px;line-height:1.5">Creates a rough action-and-duration draft using simple keyword rules. Review and edit it before playback.</div>
       <label>VISUAL SCENE BUILDER</label>
       <div class="builderRow">
         <select id="stepAction" aria-label="Choose action">
@@ -220,6 +227,39 @@
         return { action: step.action, duration, label: String(step.label || step.action).slice(0, 60) };
       });
     }
+
+
+    document.querySelector('#generateDraft').addEventListener('click', () => {
+      const raw = document.querySelector('#scriptInput').value.trim();
+      if (!raw) {
+        status.textContent = 'Paste a narration script first.';
+        return;
+      }
+      const sentences = raw.match(/[^.!?]+[.!?]?/g)?.map(s => s.trim()).filter(Boolean) || [];
+      if (!sentences.length) {
+        status.textContent = 'Could not find any script sentences.';
+        return;
+      }
+      const steps = sentences.slice(0, 30).map((sentence, index) => {
+        const lower = sentence.toLowerCase();
+        let action = 'idle';
+        if (/why|think|consider|question|wonder|imagine|perhaps/.test(lower)) action = 'think';
+        else if (/look|see|notice|point|here|this/.test(lower)) action = 'point';
+        else if (/move|travel|walk|approach|enter/.test(lower)) action = 'walk';
+        else if (/run|race|rapid|quickly/.test(lower)) action = 'run';
+        else if (/jump|leap|launch|rise/.test(lower)) action = 'jump';
+        else if (/hello|welcome|goodbye|thanks|subscribe/.test(lower)) action = 'wave';
+        const words = sentence.split(/\s+/).length;
+        const duration = Math.max(1800, Math.min(6500, Math.round(words / 2.4 * 1000)));
+        return { action, duration, label: sentence.slice(0, 60) || ('Scene ' + (index + 1)) };
+      });
+      try {
+        writeBuilderScene(steps);
+        status.textContent = 'Draft created: ' + steps.length + ' scenes. Review before playing.';
+      } catch (error) {
+        status.textContent = 'Draft error: ' + error.message;
+      }
+    });
 
     function readBuilderScene() {
       return validateScene(JSON.parse(document.querySelector('#sceneJson').value));
