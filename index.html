@@ -68,6 +68,11 @@
         <button id="generateDraft">Generate scene draft</button>
       </div>
       <div style="margin:-7px 0 12px;color:#73849c;font-size:11px;line-height:1.5">Creates a rough action-and-duration draft using simple keyword rules. Review and edit it before playback.</div>
+      <label for="aiPrompt">AI STORYBOARD ASSISTANT</label>
+      <div style="margin:0 0 8px;color:#9aabc3;font-size:11px;line-height:1.5">Builds a detailed prompt from your narration. Send it to Claude or another AI assistant, then paste the returned JSON into Scene Data below.</div>
+      <div class="buttons" style="margin-bottom:8px"><button id="buildAiPrompt">Build AI storyboard prompt</button><button id="copyAiPrompt">Copy prompt</button></div>
+      <textarea id="aiPrompt" style="width:100%;min-height:145px;resize:vertical;border:1px solid #38506d;border-radius:8px;padding:9px;background:#081321;color:#cfe2fa;font:11px/1.5 ui-monospace,monospace" placeholder="Your storyboard prompt will appear here…"></textarea>
+      <div style="margin:7px 0 14px;color:#73849c;font-size:11px;line-height:1.5">This prepares the prompt; it does not call an AI service automatically. Never paste API keys into this page.</div>
       <label>VISUAL SCENE BUILDER</label>
       <div class="builderRow">
         <select id="stepAction" aria-label="Choose action">
@@ -260,6 +265,54 @@
       });
     }
 
+
+    document.querySelector('#buildAiPrompt').addEventListener('click', () => {
+      const narration = document.querySelector('#scriptInput').value.trim();
+      if (!narration) {
+        status.textContent = 'Paste your narration script first.';
+        return;
+      }
+      const prompt = [
+        'You are the storyboard director for REALITY LAB, a science-explainer animation channel.',
+        'Convert the narration below into a clear sequence of visual scenes for a simple 3D stick-figure animation.',
+        '',
+        'Return ONLY valid JSON: an array of 1 to 30 objects. No markdown fences, no commentary.',
+        'Each object must have exactly these fields:',
+        '- "action": one of idle, walk, run, jump, point, think, wave, reach, explain, celebrate',
+        '- "duration": integer milliseconds, between 300 and 30000',
+        '- "label": short visual description, maximum 60 characters',
+        '',
+        'Storyboard rules:',
+        '1. Preserve the meaning and order of the narration. Do not invent scientific facts.',
+        '2. Split long narration into sensible visual beats; combine very short sentences when appropriate.',
+        '3. Choose actions that visually support the spoken idea. Avoid assigning the same action to every scene.',
+        '4. Use idle for establishing shots or moments where the character should remain still.',
+        '5. Use point for introducing a subject, think for questions or reasoning, explain for describing a process, reach for interacting with an object, walk/run/jump for movement, wave for greeting or closing, and celebrate only for genuine success.',
+        '6. Set duration according to the amount of narration: usually 2500–6000 ms per beat. Do not make every scene the same length.',
+        '7. Labels should describe what the viewer should understand from the scene, not repeat the full narration.',
+        '8. Keep actions physically plausible and suitable for a simple stick-figure rig.',
+        '',
+        'NARRATION SCRIPT:',
+        narration
+      ].join('\\n');
+      document.querySelector('#aiPrompt').value = prompt;
+      status.textContent = 'Storyboard prompt prepared. Copy it into your AI assistant.';
+    });
+    document.querySelector('#copyAiPrompt').addEventListener('click', async () => {
+      const field = document.querySelector('#aiPrompt');
+      if (!field.value.trim()) {
+        status.textContent = 'Build the storyboard prompt first.';
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(field.value);
+        status.textContent = 'Storyboard prompt copied.';
+      } catch (error) {
+        field.focus();
+        field.select();
+        status.textContent = 'Prompt selected. Press Ctrl+C to copy.';
+      }
+    });
 
     document.querySelector('#generateDraft').addEventListener('click', () => {
       const raw = document.querySelector('#scriptInput').value.trim();
