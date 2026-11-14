@@ -90,7 +90,7 @@
         <button id="loadScene">Load JSON</button>
         <button id="playCustom">▶ Play custom scene</button>
       </div>
-      <div style="margin-top:7px;color:#73849c;font-size:11px;line-height:1.5">Allowed actions: idle, walk, run, jump, point, think, wave, reach, explain, celebrate. Duration is in milliseconds.</div>
+      <div style="margin-top:7px;color:#73849c;font-size:11px;line-height:1.5">Allowed actions: idle, walk, run, jump, point, think, wave, reach, explain, celebrate. Optional camera: front, side, threequarter. Optional prop: show, hide. Duration is in milliseconds.</div>
     </div>
     <div id="scenePlan" style="margin-top:12px;padding-top:10px;border-top:1px solid #26354b;color:#9aabc3;font-size:12px;line-height:1.7">Demo scene: Idle → Point → Walk → Think → Wave</div>
   </section>
@@ -261,7 +261,11 @@
         if (!step || !allowed.has(step.action)) throw new Error('Step ' + (index + 1) + ': unsupported action.');
         const duration = Number(step.duration);
         if (!Number.isFinite(duration) || duration < 300 || duration > 30000) throw new Error('Step ' + (index + 1) + ': duration must be 300–30000 ms.');
-        return { action: step.action, duration, label: String(step.label || step.action).slice(0, 60) };
+        const camera = step.camera == null ? null : String(step.camera);
+        const propMode = step.prop == null ? null : String(step.prop);
+        if (camera !== null && !['front', 'side', 'threequarter'].includes(camera)) throw new Error('Step ' + (index + 1) + ': camera must be front, side, or threequarter.');
+        if (propMode !== null && !['show', 'hide'].includes(propMode)) throw new Error('Step ' + (index + 1) + ': prop must be show or hide.');
+        return { action: step.action, duration, label: String(step.label || step.action).slice(0, 60), ...(camera ? { camera } : {}), ...(propMode ? { prop: propMode } : {}) };
       });
     }
 
@@ -281,6 +285,8 @@
         '- "action": one of idle, walk, run, jump, point, think, wave, reach, explain, celebrate',
         '- "duration": integer milliseconds, between 300 and 30000',
         '- "label": short visual description, maximum 60 characters',
+        '- Optional "camera": front, side, or threequarter',
+        '- Optional "prop": show or hide (controls the blue floating object)',
         '',
         'Storyboard rules:',
         '1. Preserve the meaning and order of the narration. Do not invent scientific facts.',
@@ -291,6 +297,8 @@
         '6. Set duration according to the amount of narration: usually 2500–6000 ms per beat. Do not make every scene the same length.',
         '7. Labels should describe what the viewer should understand from the scene, not repeat the full narration.',
         '8. Keep actions physically plausible and suitable for a simple stick-figure rig.',
+        '9. Use camera changes sparingly for visual variety; use front for direct explanation, side for profile views, threequarter for the default cinematic view.',
+        '10. Set prop to show when the blue floating object helps illustrate a beat, or hide when it would distract. Omit either optional field when no change is needed.',
         '',
         'NARRATION SCRIPT:',
         narration
@@ -461,7 +469,16 @@
           activeSceneIndex = chosen;
           mode = activeScene[chosen].action;
           document.querySelector('#scenePlan').textContent = 'Now: ' + activeScene[chosen].label + ' · ' + (chosen + 1) + '/' + activeScene.length;
-          status.textContent = 'Scene action: ' + activeScene[chosen].action;
+          const step = activeScene[chosen];
+          if (step.camera === 'front') setCamera(0, 2.7, 8.5);
+          else if (step.camera === 'side') setCamera(8.5, 2.7, 0);
+          else if (step.camera === 'threequarter') setCamera(4.5, 3.1, 7.5);
+          if (step.prop === 'show' || step.prop === 'hide') {
+            propVisible = step.prop === 'show';
+            prop.visible = propVisible;
+            document.querySelector('#object').textContent = 'Moving object: ' + (propVisible ? 'on' : 'off');
+          }
+          status.textContent = 'Scene action: ' + step.action;
         }
       }
       prop.position.set(Math.cos(t * 1.25) * 1.75, 1.15 + Math.sin(t * 2.2) * 0.35, Math.sin(t * 1.25) * 1.75);
